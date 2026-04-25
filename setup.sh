@@ -28,7 +28,7 @@ pip install flash-attn --no-build-isolation -q
 
 # Project directory
 cd /workspace
-git clone https://github.com/YOUR_USERNAME/humanizer-autoresearch.git || true
+git clone https://github.com/txmed82/humanizer-autoresearch.git || true
 cd /workspace/humanizer-autoresearch
 
 # Install deps
