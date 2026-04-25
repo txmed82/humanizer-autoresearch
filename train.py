@@ -155,7 +155,7 @@ def run_training(model, tokenizer, train_dataset, output_dir: Path):
         save_strategy="no",
         dataloader_num_workers=2,
         report_to="none",
-        max_seq_length=MAX_SEQ_LEN,
+        max_length=MAX_SEQ_LEN,
         dataset_text_field="text",
         packing=True,                       # pack examples for throughput
     )
