@@ -58,13 +58,22 @@ def download_data():
 
     print("Downloading datasets...")
 
+    # Ensure HF token is set for authenticated downloads
+    hf_token = os.environ.get("HF_TOKEN", "")
+    if hf_token:
+        import huggingface_hub
+        huggingface_hub.login(token=hf_token, add_to_git_credential=False)
+
     train_examples = []
     eval_examples  = []
 
     # ── Source 1: RAID benchmark (diverse LLM + domain coverage) ─────────────
     try:
-        raid = load_dataset("liamdugan/raid", split="train", trust_remote_code=True)
-        raid_ai = [r for r in raid if r.get("label") == "ai" and len(r.get("generation", "")) > 100]
+        raid = load_dataset("liamdugan/raid", split="train")
+        # RAID uses 'model' field; non-human rows are AI-generated
+        raid_ai = [r for r in raid
+                   if r.get("model", "human") != "human"
+                   and len(r.get("generation", "")) > 100]
         for r in raid_ai[:3000]:
             train_examples.append({"ai_text": r["generation"], "human_ref": "", "source": "raid"})
         print(f"  RAID: {len(raid_ai[:3000])} AI examples")
@@ -73,7 +82,7 @@ def download_data():
 
     # ── Source 2: HC3 (human/ChatGPT Q&A pairs) ──────────────────────────────
     try:
-        hc3 = load_dataset("Hello-SimpleAI/HC3", "all", split="train", trust_remote_code=True)
+        hc3 = load_dataset("Hello-SimpleAI/HC3", "all", split="train")
         for row in hc3:
             ai_answers = row.get("chatgpt_answers", [])
             human_answers = row.get("human_answers", [])
@@ -93,13 +102,45 @@ def download_data():
     # ── Source 3: WritingPrompts (human creative writing for style reference) ─
     try:
         wp = load_dataset("euclaise/writingprompts", split="train")
-        for row in wp[:2000]:
+        for row in list(wp)[:2000]:
             story = row.get("story", "")
             if len(story) > 150:
                 train_examples.append({"ai_text": "", "human_ref": story, "source": "writingprompts"})
         print(f"  WritingPrompts: {sum(1 for e in train_examples if e['source']=='writingprompts')} human examples")
     except Exception as e:
         print(f"  WritingPrompts unavailable: {e}")
+
+    # ── Source 4: GPT-2 output dataset (public, no auth needed) ──────────────
+    try:
+        gpt2_data = load_dataset("openai-community/webtext", split="train", streaming=True)
+        # webtext is human web text — use as human reference
+        count = 0
+        for row in gpt2_data:
+            text = row.get("text", "")
+            if len(text) > 150 and count < 1000:
+                train_examples.append({"ai_text": "", "human_ref": text, "source": "webtext"})
+                count += 1
+        print(f"  WebText: {count} human examples")
+    except Exception as e:
+        print(f"  WebText unavailable: {e}")
+
+    # ── Source 5: AI vs Human text dataset (fully public) ────────────────────
+    try:
+        ai_human = load_dataset("artem9k/ai-text-detection-pile", split="train", streaming=True)
+        ai_count = 0
+        for row in ai_human:
+            text = row.get("text", "")
+            source = row.get("source", "")
+            label = row.get("label", row.get("type", ""))
+            is_ai = str(label) in {"1", "ai", "generated", "fake"} or "ai" in str(source).lower()
+            if is_ai and len(text) > 100 and ai_count < 2000:
+                train_examples.append({"ai_text": text, "human_ref": "", "source": "ai_pile"})
+                ai_count += 1
+            if ai_count >= 2000:
+                break
+        print(f"  AI-text-pile: {ai_count} AI examples")
+    except Exception as e:
+        print(f"  AI-text-pile unavailable: {e}")
 
     # ── Build eval set (AI text only, no human ref) ───────────────────────────
     ai_examples = [e for e in train_examples if e["ai_text"] and e["source"] != "writingprompts"]
