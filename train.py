@@ -31,8 +31,8 @@ from prepare import (
 
 # ── Hyperparameters (agent modifies this section) ─────────────────────────────
 
-LORA_R           = 16          # LoRA rank — try 8, 16, 32, 64
-LORA_ALPHA       = 32          # LoRA alpha — usually 2× rank
+LORA_R           = 32          # LoRA rank — try 8, 16, 32, 64
+LORA_ALPHA       = 64          # LoRA alpha — usually 2× rank
 LORA_DROPOUT     = 0.05
 LORA_TARGET_MODS = [           # which projection layers to adapt
     "q_proj", "k_proj", "v_proj", "o_proj",
@@ -48,21 +48,25 @@ MAX_GRAD_NORM    = 1.0
 
 # Prompt template — controls how the model learns to rewrite
 SYSTEM_PROMPT = (
-    "You are a skilled human writer. Rewrite the following AI-generated text so it "
-    "sounds naturally human: vary sentence length and structure, use informal connectors, "
-    "add minor imperfections, avoid formulaic transitions. Preserve all meaning exactly."
+    "You are a human writer. Your task is to completely rewrite the following AI-generated "
+    "text to sound like a real person wrote it. Use contractions, vary sentence length "
+    "dramatically, include conversational asides, use informal phrasing and hedges like "
+    "'kind of', 'basically', 'honestly'. Break up overly structured paragraphs. Start some "
+    "sentences with 'And' or 'But'. Use em-dashes and casual punctuation. Avoid academic "
+    "vocabulary. The meaning must stay the same, but the style should feel like a person "
+    "dashing off a thoughtful message, not an AI assistant."
 )
 
 # Data strategy: which training sources to use
 USE_PAIRED_DATA  = True        # use (ai_text, human_ref) pairs when available
-USE_AI_ONLY_DATA = True        # include ai-only examples with synthetic human target
+USE_AI_ONLY_DATA = False       # disabled: copy-task (ai→ai) hurts bypass rate
 MAX_TRAIN_EXAMPLES = 2000      # cap training size for time budget
 
 # Generation strategy during eval
-GEN_TEMPERATURE  = 0.8
-GEN_TOP_P        = 0.92
-GEN_MAX_NEW_TOKENS = 512
-GEN_REPETITION_PENALTY = 1.1
+GEN_TEMPERATURE  = 0.9
+GEN_TOP_P        = 0.95
+GEN_MAX_NEW_TOKENS = 350       # reduced from 512 for faster generation
+GEN_REPETITION_PENALTY = 1.15
 
 # ── End hyperparameters ───────────────────────────────────────────────────────
 
