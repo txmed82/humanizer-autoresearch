@@ -164,7 +164,7 @@ def run_training(model, tokenizer, train_dataset, output_dir: Path):
         model=model,
         args=sft_cfg,
         train_dataset=train_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     # Timed training loop — respects TRAINING_SECONDS budget
