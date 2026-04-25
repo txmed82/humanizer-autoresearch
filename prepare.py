@@ -30,7 +30,7 @@ SEMANTIC_SIM_MIN  = 0.60         # minimum semantic similarity to count as valid
 MAX_SEQ_LEN       = 512          # token limit per example
 
 PANGRAM_API_KEY   = os.environ.get("PANGRAM_API_KEY", "")
-PANGRAM_API_URL   = "https://api.pangram.com/v1/text"
+PANGRAM_API_URL   = "https://text.api.pangram.com/v3"
 
 # ── Data preparation ─────────────────────────────────────────────────────────
 
@@ -147,23 +147,31 @@ def load_eval_data() -> list[dict]:
 # ── Evaluation harness ────────────────────────────────────────────────────────
 
 def _call_pangram(text: str) -> float | None:
-    """Call Pangram API. Returns AI probability score (1.0 = definitely AI, 0.0 = definitely human)."""
+    """
+    Call Pangram v3 API.
+    Returns combined AI probability = 1 - human_score (0.0 = human, 1.0 = AI).
+    A bypass is score < 0.5, i.e. human_score > 0.5.
+    prediction values: "AI", "AI-Assisted", "Human", "Mixed"
+    Both "AI" and "AI-Assisted" count as detected (not a bypass).
+    """
     if not PANGRAM_API_KEY:
         return None
     try:
         resp = requests.post(
             PANGRAM_API_URL,
             headers={
-                "Authorization": f"Bearer {PANGRAM_API_KEY}",
+                "x-api-key": PANGRAM_API_KEY,
                 "Content-Type": "application/json",
             },
             json={"text": text},
-            timeout=10,
+            timeout=15,
         )
         if resp.status_code == 200:
             data = resp.json()
-            # Pangram returns {"score": float, "label": "ai"|"human"}
-            return float(data.get("score", 0.5))
+            human_score = float(data.get("human_score", 0.0))
+            return 1.0 - human_score   # high = AI, low = human
+        else:
+            print(f"  Pangram API status {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         print(f"  Pangram API error: {e}")
     return None
