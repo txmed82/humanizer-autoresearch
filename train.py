@@ -123,7 +123,6 @@ def load_model_and_tokenizer():
         quantization_config=bnb_cfg,
         device_map="auto",
         torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2",
     )
     model.config.use_cache = False
 
