@@ -67,19 +67,20 @@ GEN_REPETITION_PENALTY = 1.1
 # ── End hyperparameters ───────────────────────────────────────────────────────
 
 
-def build_prompt(ai_text: str) -> str:
-    return (
-        f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n"
-        f"{SYSTEM_PROMPT}<|eot_id|>"
-        f"<|start_header_id|>user<|end_header_id|>\n"
-        f"{ai_text}<|eot_id|>"
-        f"<|start_header_id|>assistant<|end_header_id|>\n"
-    )
+def build_prompt(ai_text: str, tokenizer=None) -> str:
+    """Build prompt using the model's chat template if available, else Mistral format."""
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        messages = [{"role": "user", "content": f"{SYSTEM_PROMPT}\n\n{ai_text}"}]
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+    # Fallback: Mistral [INST] format
+    return f"[INST] {SYSTEM_PROMPT}\n\n{ai_text} [/INST]"
 
 
 def build_training_example(ai_text: str, human_ref: str, tokenizer) -> dict:
-    prompt = build_prompt(ai_text)
-    full   = prompt + human_ref + "<|eot_id|>"
+    prompt = build_prompt(ai_text, tokenizer)
+    full   = prompt + human_ref + tokenizer.eos_token
     return {"text": full}
 
 
@@ -121,7 +122,6 @@ def load_model_and_tokenizer():
         cache_dir=CACHE_DIR,
         quantization_config=bnb_cfg,
         device_map="auto",
-        trust_remote_code=True,
         torch_dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
     )
@@ -197,7 +197,7 @@ def generate_humanized(model, tokenizer, eval_data: list[dict]) -> list[str]:
     model.eval()
     outputs = []
     for ex in eval_data:
-        prompt = build_prompt(ex["ai_text"])
+        prompt = build_prompt(ex["ai_text"], tokenizer)
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True,
                            max_length=MAX_SEQ_LEN).to(model.device)
         out = model.generate(
