@@ -168,8 +168,9 @@ def _call_pangram(text: str) -> float | None:
         )
         if resp.status_code == 200:
             data = resp.json()
-            human_score = float(data.get("human_score", 0.0))
-            return 1.0 - human_score   # high = AI, low = human
+            # v3.2 response uses fraction_human (0–1), fraction_ai, fraction_ai_assisted
+            fraction_human = float(data.get("fraction_human", 0.0))
+            return 1.0 - fraction_human   # high = AI-detected, low = bypassed
         else:
             print(f"  Pangram API status {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
